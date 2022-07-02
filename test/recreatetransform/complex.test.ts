@@ -1,12 +1,11 @@
 import pmTestBuilder from "prosemirror-test-builder";
-import { strict as assert } from "assert";
 import { recreateTransform, Options } from "../../src/recreateTransform";
-const { doc, blockquote, h1, h2, p, em, strong } = pmTestBuilder;
+const { schema, doc, blockquote, h1, h2, p, em, strong, ul, li } = pmTestBuilder;
 
 
 function testRecreate(startDoc, endDoc, steps = [], options: Options = {}) {
     const tr = recreateTransform(startDoc, endDoc, options);
-    assert.equal(JSON.stringify(tr.steps.map(step => step.toJSON())), JSON.stringify(steps));
+    expect(JSON.stringify(tr.steps.map(step => step.toJSON()))).toBe(JSON.stringify(steps));
 }
 
 
@@ -220,3 +219,75 @@ describe("recreateTransform - complex node diffs", () => {
     );
 
 });
+
+
+
+import {EditorState, Selection, TextSelection, Transaction} from "prosemirror-state"
+import {Schema, DOMParser} from "prosemirror-model"
+import {addListNodes, liftListItem, sinkListItem, splitListItem} from "prosemirror-schema-list"
+
+describe("simplifyTransform2", () => {
+
+    function makeDoc(selectionPos: number, doc) {
+        const state = EditorState.create({doc, schema, selection: Selection.fromJSON(doc, {type: "text", anchor: selectionPos, head: selectionPos}) })
+        return state;
+    }
+
+    function doTest(initialState: EditorState, buildTransform: (doc: EditorState) => Transaction) {
+        const originalTr = buildTransform(initialState);
+
+        const reconstructedTr = recreateTransform(initialState.doc, originalTr.doc, {complexSteps: true, wordDiffs: false, simplifyDiff: true});
+
+        // Check that the original transform and the recreated transform produced the same doc
+        expect(originalTr.doc.toJSON()).toEqual(reconstructedTr.doc.toJSON());
+
+        // Check that they did so with the same steps.
+        expect(originalTr.steps.map(step => step.toJSON())).toEqual(reconstructedTr.steps.map(step => step.toJSON()));
+    }
+
+    function dispatch<T>(f: (a: (d: T) => void) => void): T {
+        let result: T;
+        f((d: T) => { result = d; });
+        return result;
+    }
+
+    it("indent top level list item at end of list", () => {
+        doTest(
+            makeDoc(10, doc(ul(
+                li(p("abc")),
+                li(p("def")),
+            ))),
+            state => dispatch(dispatch => { sinkListItem(state.schema.nodes.list_item)(state, dispatch) })
+        );
+    })
+
+    // it("merge top level list item at end of list", () => {
+    //     doTest(
+    //         makeDoc(10, doc(ul(
+    //             li(p("abc")),
+    //             li(p("def")),
+    //         ))),
+    //         state => dispatch(dispatch => { liftListItem(state.schema.nodes.list_item)(state, dispatch) })
+    //     );
+    // })
+
+    it("split top level list item inside list", () => {
+        doTest(
+            makeDoc(4, doc(ul(
+                li(p("abc")),
+                li(p("def")),
+            ))),
+            state => dispatch(dispatch => { splitListItem(state.schema.nodes.list_item)(state, dispatch) })
+        );
+    })
+
+    it("split top level list item at end of list", () => {
+        doTest(
+            makeDoc(11, doc(ul(
+                li(p("abc")),
+                li(p("def")),
+            ))),
+            state => dispatch(dispatch => { splitListItem(state.schema.nodes.list_item)(state, dispatch) })
+        );
+    })
+})

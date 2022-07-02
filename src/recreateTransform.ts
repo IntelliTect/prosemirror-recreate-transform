@@ -4,7 +4,7 @@ import { applyPatch, createPatch, Operation } from "rfc6902";
 import { diffWordsWithSpace, diffChars } from "diff";
 import { AnyObject } from "./types";
 import { getReplaceStep } from "./getReplaceStep";
-import { simplifyTransform } from "./simplifyTransform";
+import { simplifyTransform, simplifyTransform2 } from "./simplifyTransform";
 import { removeMarks } from "./removeMarks";
 import { getFromPath } from "./getFromPath";
 import { copy } from "./copy";
@@ -72,6 +72,7 @@ export class RecreateTransform {
 
         if (this.simplifyDiff) {
             this.tr = simplifyTransform(this.tr) || this.tr;
+            this.tr = simplifyTransform2(this.tr) || this.tr;
         }
 
         return this.tr;

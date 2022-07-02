@@ -10,7 +10,6 @@
     },
     "include": [
         "src/**/*",
-        "**/*.test.ts", // resolved relative when referencing webpack?
-        "node_modules/@technik-sde/**/*"
+        "**/*.test.ts"
     ]
 }
